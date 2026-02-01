@@ -209,7 +209,7 @@ function update(time, delta) {
             currentLetter.y += CELL_SIZE;
         } else {
             currentLetter.y = row * CELL_SIZE;
-            grid[row][col] = currentLetter.text.toUpperCase();
+            grid[row][col] = currentLetter; // <-- store Phaser object instead of string
             letters.push(currentLetter);
             currentLetter = null;
 
@@ -231,14 +231,14 @@ function checkAllWordsWithGravityAndCombo(scene) {
     let clearedPositions = [];
     let wordsThisDrop = [];
 
-    // Scan horizontal
+    // Horizontal
     for (let r = 0; r < ROWS; r++) {
         for (let cStart = 0; cStart < COLS; cStart++) {
             if (!grid[r][cStart]) continue;
             for (let len = minWordLength; len <= COLS - cStart; len++) {
-                const wordArr = [];
-                for (let i = 0; i < len; i++) wordArr.push(grid[r][cStart + i]);
-                const word = wordArr.join("");
+                const lettersArr = [];
+                for (let i = 0; i < len; i++) lettersArr.push(grid[r][cStart + i].text);
+                const word = lettersArr.join("");
                 if (dictionarySet.has(word) && !wordsCreated.includes(word) && !wordsThisDrop.includes(word)) {
                     wordsThisDrop.push(word);
                     for (let i = 0; i < len; i++) clearedPositions.push({ row: r, col: cStart + i });
@@ -247,14 +247,14 @@ function checkAllWordsWithGravityAndCombo(scene) {
         }
     }
 
-    // Scan vertical
+    // Vertical
     for (let c = 0; c < COLS; c++) {
         for (let rStart = 0; rStart < ROWS; rStart++) {
             if (!grid[rStart][c]) continue;
             for (let len = minWordLength; len <= ROWS - rStart; len++) {
-                const wordArr = [];
-                for (let i = 0; i < len; i++) wordArr.push(grid[rStart + i][c]);
-                const word = wordArr.join("");
+                const lettersArr = [];
+                for (let i = 0; i < len; i++) lettersArr.push(grid[rStart + i][c].text);
+                const word = lettersArr.join("");
                 if (dictionarySet.has(word) && !wordsCreated.includes(word) && !wordsThisDrop.includes(word)) {
                     wordsThisDrop.push(word);
                     for (let i = 0; i < len; i++) clearedPositions.push({ row: rStart + i, col: c });
@@ -264,7 +264,6 @@ function checkAllWordsWithGravityAndCombo(scene) {
     }
 
     if (wordsThisDrop.length > 0) {
-        // Combo multiplier: 1st word normal, each extra word +50% points
         let multiplier = 1 + (wordsThisDrop.length - 1) * 0.5;
         wordsThisDrop.forEach(word => {
             wordsCreated.push(word);
@@ -275,7 +274,7 @@ function checkAllWordsWithGravityAndCombo(scene) {
         scoreText.setText("Score: " + score);
 
         clearedPositions.forEach(pos => {
-            const l = letters.find(letterObj => Math.floor(letterObj.x / CELL_SIZE) === pos.col && Math.floor(letterObj.y / CELL_SIZE) === pos.row);
+            const l = grid[pos.row][pos.col];
             if (l) flashLetter(l);
         });
 
@@ -288,26 +287,25 @@ function checkAllWordsWithGravityAndCombo(scene) {
 
     function removeLettersAndApplyGravity(positions) {
         positions.forEach(pos => {
-            const idx = letters.findIndex(l => Math.floor(l.x / CELL_SIZE) === pos.col && Math.floor(l.y / CELL_SIZE) === pos.row);
-            if (idx !== -1) {
-                letters[idx].destroy();
-                letters.splice(idx, 1);
+            const l = grid[pos.row][pos.col];
+            if (l) {
+                l.destroy();
+                letters.splice(letters.indexOf(l), 1);
             }
             grid[pos.row][pos.col] = null;
         });
 
+        // Apply gravity
         for (let c = 0; c < COLS; c++) {
             for (let r = ROWS - 1; r >= 0; r--) {
                 if (!grid[r][c]) {
                     let k = r - 1;
                     while (k >= 0 && !grid[k][c]) k--;
                     if (k >= 0) {
-                        const movingLetter = letters.find(l => Math.floor(l.x / CELL_SIZE) === c && Math.floor(l.y / CELL_SIZE) === k);
-                        if (movingLetter) {
-                            movingLetter.y = r * CELL_SIZE;
-                            grid[r][c] = movingLetter.text.toUpperCase();
-                            grid[k][c] = null;
-                        }
+                        const movingLetter = grid[k][c];
+                        movingLetter.y = r * CELL_SIZE;
+                        grid[r][c] = movingLetter;
+                        grid[k][c] = null;
                     }
                 }
             }
