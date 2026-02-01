@@ -1,3 +1,4 @@
+// ---------------- CONFIG ----------------
 const CELL_SIZE = 32;
 const COLS = 10;
 const ROWS = 20;
@@ -20,6 +21,9 @@ let wordsCreated = [];
 
 let scoreText, levelText, nextLetterText, wordsText;
 let dictionarySet;
+let dictionaryByLength = new Map();
+let minWordLength = 3;
+let maxWordLength = 7;
 
 const config = {
     type: Phaser.AUTO,
@@ -82,24 +86,20 @@ function create() {
 
     cursors = this.input.keyboard.createCursorKeys();
 
-    // Load dictionary
+    // ---------------- LOAD DICTIONARY ----------------
     const dictionaryArray = this.cache.json.get('dictionary');
-    if (!dictionaryArray) {
-        alert("Dictionary JSON not found!");
-        return;
-    }
-    dictionarySet = new Set(dictionaryArray.map(word => word.toUpperCase()));
+    if (!dictionaryArray) { alert("Dictionary JSON not found!"); return; }
+    prepareDictionary(dictionaryArray);
 
-    // Initialize nextLetter and spawn first letter
+    // Initialize first letters
     nextLetter = getRandomLetter();
     spawnLetter(this);
 }
 
-// ---------------- GRID LINES ----------------
+// ---------------- DRAW GRID ----------------
 function drawGrid(graphics, color=0x00ffff) {
     graphics.clear();
     graphics.lineStyle(1, color);
-
     for (let r = 0; r <= ROWS; r++) {
         graphics.moveTo(0, r * CELL_SIZE);
         graphics.lineTo(LEFT_PANEL_WIDTH, r * CELL_SIZE);
@@ -117,7 +117,7 @@ function getRandomLetter() {
 }
 
 function spawnLetter(scene) {
-    if (!nextLetter) nextLetter = getRandomLetter(); // fallback
+    if (!nextLetter) nextLetter = getRandomLetter(); 
 
     currentLetter = scene.add.text(Math.floor(COLS / 2) * CELL_SIZE, 0, nextLetter, { 
         font: "32px Courier", 
@@ -171,6 +171,20 @@ function update(time, delta) {
     }
 }
 
+// ---------------- DICTIONARY PREP ----------------
+function prepareDictionary(dictionaryArray) {
+    dictionarySet = new Set(dictionaryArray.map(word => word.toUpperCase()));
+    minWordLength = Math.min(...dictionaryArray.map(w => w.length));
+    maxWordLength = Math.max(...dictionaryArray.map(w => w.length));
+
+    dictionaryByLength.clear();
+    for (let word of dictionarySet) {
+        const len = word.length;
+        if (!dictionaryByLength.has(len)) dictionaryByLength.set(len, new Set());
+        dictionaryByLength.get(len).add(word);
+    }
+}
+
 // ---------------- OPTIMIZED WORD CHECK ----------------
 function checkWordsOptimized(scene, rowChanged, colChanged) {
     function flashLetter(letter) {
@@ -189,14 +203,14 @@ function checkWordsOptimized(scene, rowChanged, colChanged) {
         let rowWord = "";
         for (let c = 0; c < COLS; c++) rowWord += grid[r][c] || " ";
 
-        for (let start = 0; start < COLS; start++) {
-            for (let end = start + 1; end <= COLS; end++) {
-                const sub = rowWord.slice(start, end).replace(/\s+/g, "");
-                if (sub.length > 0 && dictionarySet.has(sub) && !wordsCreated.includes(sub)) {
+        for (let start = 0; start <= COLS - minWordLength; start++) {
+            for (let len = minWordLength; len <= maxWordLength && start + len <= COLS; len++) {
+                const sub = rowWord.slice(start, start + len).replace(/\s+/g, "");
+                if (sub.length >= minWordLength && dictionaryByLength.get(len)?.has(sub) && !wordsCreated.includes(sub)) {
                     score += sub.length;
                     scoreText.setText("Score: " + score);
 
-                    for (let i = start; i < end; i++) {
+                    for (let i = start; i < start + len; i++) {
                         letters.forEach(l => {
                             if (Math.floor(l.y / CELL_SIZE) === r && Math.floor(l.x / CELL_SIZE) === i) flashLetter(l);
                         });
@@ -216,14 +230,14 @@ function checkWordsOptimized(scene, rowChanged, colChanged) {
         let colWord = "";
         for (let r = 0; r < ROWS; r++) colWord += grid[r][c] || " ";
 
-        for (let start = 0; start < ROWS; start++) {
-            for (let end = start + 1; end <= ROWS; end++) {
-                const sub = colWord.slice(start, end).replace(/\s+/g, "");
-                if (sub.length > 0 && dictionarySet.has(sub) && !wordsCreated.includes(sub)) {
+        for (let start = 0; start <= ROWS - minWordLength; start++) {
+            for (let len = minWordLength; len <= maxWordLength && start + len <= ROWS; len++) {
+                const sub = colWord.slice(start, start + len).replace(/\s+/g, "");
+                if (sub.length >= minWordLength && dictionaryByLength.get(len)?.has(sub) && !wordsCreated.includes(sub)) {
                     score += sub.length;
                     scoreText.setText("Score: " + score);
 
-                    for (let r2 = start; r2 < end; r2++) {
+                    for (let r2 = start; r2 < start + len; r2++) {
                         letters.forEach(l => {
                             if (Math.floor(l.x / CELL_SIZE) === c && Math.floor(l.y / CELL_SIZE) === r2) flashLetter(l);
                         });
@@ -247,3 +261,4 @@ function updateLevel() {
         dropInterval = Math.max(500 - (level - 1) * 50, 100);
     }
 }
+
