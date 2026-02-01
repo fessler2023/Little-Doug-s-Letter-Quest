@@ -31,8 +31,8 @@ const config = {
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
 
-    backgroundColor: 0x000000,
     parent: 'phaser-game',
+    backgroundColor: 0x000000,
 
     scale: {
         mode: Phaser.Scale.FIT,
@@ -42,8 +42,8 @@ const config = {
     scene: { preload, create, update }
 };
 
-
 const game = new Phaser.Game(config);
+
 
 // ---------------- PRELOAD ----------------
 function preload() {
@@ -425,4 +425,5 @@ function updateLevel() {
         dropInterval = Math.max(500 - (level - 1) * 50, 100);
     }
 }
+
 
