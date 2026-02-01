@@ -86,17 +86,20 @@ async function create() {
     );
 
     // ---------------- TITLE ----------------
-    this.add.text(
-        LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH / 2,
-        10,
-        "Little Doug’s Letter Quest",
-        {
-            font: "36px Courier",
-            fill: "#ffff00",
-            stroke: "#ff00ff",
-            strokeThickness: 2
-        }
-    ).setOrigin(0.5, 0);
+this.add.text(
+    LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH / 2,
+    10,
+    "Little Doug’s\nLetter Quest",
+    {
+        font: "32px Courier",
+        fill: "#ffff00",
+        stroke: "#ff00ff",
+        strokeThickness: 2,
+        align: 'center'
+    }
+).setOrigin(0.5, 0);
+
+
 
     // ---------------- SCORE, LEVEL, NEXT ----------------
     scoreText = this.add.text(
@@ -425,5 +428,6 @@ function updateLevel() {
         dropInterval = Math.max(500 - (level - 1) * 50, 100);
     }
 }
+
 
 
