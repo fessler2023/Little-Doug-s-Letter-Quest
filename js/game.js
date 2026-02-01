@@ -3,7 +3,7 @@ const COLS = 10;
 const ROWS = 20;
 
 const LEFT_PANEL_WIDTH = COLS * CELL_SIZE;
-const RIGHT_PANEL_WIDTH = 400; // wider sidebar
+const RIGHT_PANEL_WIDTH = 400;
 const GAME_WIDTH = LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH;
 const GAME_HEIGHT = ROWS * CELL_SIZE;
 
@@ -42,23 +42,30 @@ function preload() {
 function create() {
     // ---------------- GRID (LEFT PANEL) ----------------
     this.add.rectangle(LEFT_PANEL_WIDTH / 2, GAME_HEIGHT / 2, LEFT_PANEL_WIDTH, GAME_HEIGHT, 0x111111).setOrigin(0.5);
+    this.gridGraphics = this.add.graphics();
+    drawGrid(this.gridGraphics, 0x00ffff);
 
     // ---------------- SIDEBAR (RIGHT PANEL) ----------------
     this.add.rectangle(LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH / 2, GAME_HEIGHT / 2, RIGHT_PANEL_WIDTH, GAME_HEIGHT, 0x222222).setOrigin(0.5);
+    this.sidebarGraphics = this.add.graphics();
+    this.sidebarGraphics.lineStyle(3, 0xff00ff, 1);
+    this.sidebarGraphics.strokeRect(LEFT_PANEL_WIDTH + 2, 2, RIGHT_PANEL_WIDTH - 4, GAME_HEIGHT - 4);
 
     // ---------------- TITLE ----------------
     this.add.text(LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH / 2, 10, "Little Doug’s Letter Quest", 
-        { font: "36px Courier", fill: "#ffff00" }).setOrigin(0.5, 0);
+        { font: "36px Courier", fill: "#ffff00", stroke: "#ff00ff", strokeThickness: 2 }).setOrigin(0.5, 0);
 
-    // ---------------- SCORE, LEVEL, NEXT LETTER ----------------
-    scoreText = this.add.text(LEFT_PANEL_WIDTH + 20, 60, "Score: 0", { font: "24px Courier", fill: "#fff" });
-    levelText = this.add.text(LEFT_PANEL_WIDTH + 20, 110, "Level: 1", { font: "24px Courier", fill: "#fff" });
-    nextLetterText = this.add.text(LEFT_PANEL_WIDTH + 20, 160, "Next: ?", { font: "24px Courier", fill: "#ffff00" });
+    // ---------------- SCORE, LEVEL, NEXT ----------------
+    scoreText = this.add.text(LEFT_PANEL_WIDTH + 20, 60, "Score: 0", { font: "24px Courier", fill: "#00ffff", stroke: "#ff00ff", strokeThickness: 1 });
+    levelText = this.add.text(LEFT_PANEL_WIDTH + 20, 110, "Level: 1", { font: "24px Courier", fill: "#00ffff", stroke: "#ff00ff", strokeThickness: 1 });
+    nextLetterText = this.add.text(LEFT_PANEL_WIDTH + 20, 160, "Next: ?", { font: "24px Courier", fill: "#ffff00", stroke: "#ff00ff", strokeThickness: 1 });
 
     // ---------------- WORDS CREATED ----------------
     wordsText = this.add.text(LEFT_PANEL_WIDTH + 20, 220, "Words:\n", { 
         font: "20px Courier", 
         fill: "#00ff00", 
+        stroke: "#00ffff",
+        strokeThickness: 1,
         wordWrap: { width: RIGHT_PANEL_WIDTH - 40 } 
     });
 
@@ -75,22 +82,19 @@ function create() {
 
     cursors = this.input.keyboard.createCursorKeys();
 
-    // Load dictionary into Set
+    // Load dictionary
     const dictionaryArray = this.cache.json.get('dictionary');
     dictionarySet = new Set(dictionaryArray);
 
     nextLetter = getRandomLetter();
     spawnLetter(this);
-
-    // Draw grid lines
-    this.gridGraphics = this.add.graphics();
-    drawGrid(this.gridGraphics);
 }
 
 // ---------------- GRID LINES ----------------
-function drawGrid(graphics) {
+function drawGrid(graphics, color=0x00ffff) {
     graphics.clear();
-    graphics.lineStyle(1, 0x555555);
+    graphics.lineStyle(1, color);
+
     for (let r = 0; r <= ROWS; r++) {
         graphics.moveTo(0, r * CELL_SIZE);
         graphics.lineTo(LEFT_PANEL_WIDTH, r * CELL_SIZE);
@@ -108,7 +112,13 @@ function getRandomLetter() {
 }
 
 function spawnLetter(scene) {
-    currentLetter = scene.add.text(Math.floor(COLS / 2) * CELL_SIZE, 0, nextLetter, { font: "32px Courier", fill: "#ffff00" }).setOrigin(0);
+    currentLetter = scene.add.text(Math.floor(COLS / 2) * CELL_SIZE, 0, nextLetter, { 
+        font: "32px Courier", 
+        fill: "#ffff00", 
+        stroke: "#ff00ff", 
+        strokeThickness: 2 
+    }).setOrigin(0);
+
     nextLetter = getRandomLetter();
     nextLetterText.setText("Next: " + nextLetter);
 
@@ -127,42 +137,46 @@ function spawnLetter(scene) {
 function update(time, delta) {
     if (!currentLetter) return;
 
-    // Move left/right
     if (Phaser.Input.Keyboard.JustDown(cursors.left) && currentLetter.x >= 0) currentLetter.x -= CELL_SIZE;
     if (Phaser.Input.Keyboard.JustDown(cursors.right) && currentLetter.x < (COLS - 1) * CELL_SIZE) currentLetter.x += CELL_SIZE;
 
-    // Move down faster
     if (cursors.down.isDown) currentLetter.y += CELL_SIZE;
 
-    // Drop timer
     dropTimer += delta;
     if (dropTimer > dropInterval) {
         currentLetter.y += CELL_SIZE;
         dropTimer = 0;
     }
 
-    // Check if landed
     const row = Math.floor(currentLetter.y / CELL_SIZE);
     const col = Math.floor(currentLetter.x / CELL_SIZE);
 
     if (row >= ROWS - 1 || grid[Math.min(row + 1, ROWS - 1)][col]) {
-        // Clamp to bottom row
         const finalRow = Math.min(row, ROWS - 1);
         currentLetter.y = finalRow * CELL_SIZE;
-
-        // Lock letter in grid
         grid[finalRow][col] = currentLetter.text;
         letters.push(currentLetter);
         currentLetter = null;
 
+        // Flash effect for letters that form words
         checkWords(this);
         spawnLetter(this);
         updateLevel();
     }
 }
 
-// ---------------- WORD CHECK (HORIZONTAL + VERTICAL) ----------------
+// ---------------- WORD CHECK (HORIZONTAL + VERTICAL + FLASH) ----------------
 function checkWords(scene) {
+    function flashLetter(letter) {
+        scene.tweens.add({
+            targets: letter,
+            alpha: 0,
+            duration: 100,
+            yoyo: true,
+            repeat: 3
+        });
+    }
+
     // Horizontal
     for (let r = 0; r < ROWS; r++) {
         let rowWord = "";
@@ -175,8 +189,12 @@ function checkWords(scene) {
                     score += sub.length;
                     scoreText.setText("Score: " + score);
 
-                    for (let i = start; i < end; i++) grid[r][i] = null;
-                    letters = letters.filter(l => Math.floor(l.y / CELL_SIZE) !== r);
+                    for (let i = start; i < end; i++) {
+                        grid[r][i] = null;
+                        letters.forEach(l => {
+                            if (Math.floor(l.y / CELL_SIZE) === r && Math.floor(l.x / CELL_SIZE) === i) flashLetter(l);
+                        });
+                    }
 
                     wordsCreated.push(sub);
                     wordsText.setText("Words:\n" + wordsCreated.join("\n"));
@@ -185,7 +203,7 @@ function checkWords(scene) {
         }
     }
 
-    // Vertical (top-down)
+    // Vertical
     for (let c = 0; c < COLS; c++) {
         let colWord = "";
         for (let r = 0; r < ROWS; r++) colWord += grid[r][c] || " ";
@@ -197,8 +215,12 @@ function checkWords(scene) {
                     score += sub.length;
                     scoreText.setText("Score: " + score);
 
-                    for (let i = start; i < end; i++) grid[i][c] = null;
-                    letters = letters.filter(l => Math.floor(l.x / CELL_SIZE) !== c);
+                    for (let i = start; i < end; i++) {
+                        grid[i][c] = null;
+                        letters.forEach(l => {
+                            if (Math.floor(l.x / CELL_SIZE) === c && Math.floor(l.y / CELL_SIZE) === i) flashLetter(l);
+                        });
+                    }
 
                     wordsCreated.push(sub);
                     wordsText.setText("Words:\n" + wordsCreated.join("\n"));
@@ -217,3 +239,4 @@ function updateLevel() {
         dropInterval = Math.max(500 - (level - 1) * 50, 100);
     }
 }
+
