@@ -27,12 +27,21 @@ let maxWordLength = 7;
 
 const config = {
     type: Phaser.AUTO,
+
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
+
     backgroundColor: 0x000000,
     parent: 'phaser-game',
+
+    scale: {
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH
+    },
+
     scene: { preload, create, update }
 };
+
 
 const game = new Phaser.Game(config);
 
@@ -416,3 +425,4 @@ function updateLevel() {
         dropInterval = Math.max(500 - (level - 1) * 50, 100);
     }
 }
+
