@@ -34,7 +34,7 @@ const game = new Phaser.Game(config);
 
 // ---------------- PRELOAD ----------------
 function preload() {
-    this.load.json('dictionary', 'dictionary.json'); // your big JSON dictionary
+    this.load.json('dictionary', 'dictionary.json'); // your large dictionary JSON
     this.load.image('sidebarBg', 'assets/sidebar-bg.png'); // optional PNG for sidebar background
 }
 
@@ -84,8 +84,13 @@ function create() {
 
     // Load dictionary
     const dictionaryArray = this.cache.json.get('dictionary');
+    if (!dictionaryArray) {
+        alert("Dictionary JSON not found!");
+        return;
+    }
     dictionarySet = new Set(dictionaryArray.map(word => word.toUpperCase()));
 
+    // Initialize nextLetter and spawn first letter
     nextLetter = getRandomLetter();
     spawnLetter(this);
 }
@@ -112,6 +117,8 @@ function getRandomLetter() {
 }
 
 function spawnLetter(scene) {
+    if (!nextLetter) nextLetter = getRandomLetter(); // fallback
+
     currentLetter = scene.add.text(Math.floor(COLS / 2) * CELL_SIZE, 0, nextLetter, { 
         font: "32px Courier", 
         fill: "#ffff00", 
@@ -240,3 +247,4 @@ function updateLevel() {
         dropInterval = Math.max(500 - (level - 1) * 50, 100);
     }
 }
+
