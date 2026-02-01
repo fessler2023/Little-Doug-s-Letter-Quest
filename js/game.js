@@ -46,7 +46,11 @@ const game = new Phaser.Game(config);
 
 // ---------------- PRELOAD ----------------
 function preload() {
-    this.load.image('sidebarBg', 'assets/sidebar-bg.png'); // replace with your PNG
+    this.load.image('sidebarBg', 'assets/sidebar-bg.png');
+    
+    // --- LOAD SOUNDS ---
+    this.load.audio('letterdrop', 'assets/sounds/letterdrop.wav');
+    this.load.audio('wordfound', 'assets/sounds/wordfound.wav');
 }
 
 // ---------------- CREATE ----------------
@@ -195,6 +199,10 @@ function update(time, delta) {
 
         grid[finalRow][col] = currentLetter.text.toUpperCase();
         letters.push(currentLetter);
+
+        // --- PLAY LETTER LAND SOUND ---
+        this.sound.play('letterdrop');
+
         currentLetter = null;
 
         checkWordsOptimized(this); // scan whole grid continuously
@@ -225,6 +233,8 @@ function checkWordsOptimized(scene) {
         scene.tweens.add({ targets: letter, alpha: 0, duration: 100, yoyo: true, repeat: 3 });
     }
 
+    let foundWord = false;
+
     // --- HORIZONTAL ---
     for (let r = 0; r < ROWS; r++) {
         let rowWord = "";
@@ -235,6 +245,7 @@ function checkWordsOptimized(scene) {
                 if (sub.length >= minWordLength && dictionaryByLength.get(len)?.has(sub) && !wordsCreated.includes(sub)) {
                     score += sub.length;
                     scoreText.setText("Score: " + score);
+                    foundWord = true;
                     for (let i = start; i < start + len; i++) {
                         letters.forEach(l => {
                             if (Math.floor(l.y / CELL_SIZE) === r && Math.floor(l.x / CELL_SIZE) === i) flashLetter(l);
@@ -258,6 +269,7 @@ function checkWordsOptimized(scene) {
                 if (sub.length >= minWordLength && dictionaryByLength.get(len)?.has(sub) && !wordsCreated.includes(sub)) {
                     score += sub.length;
                     scoreText.setText("Score: " + score);
+                    foundWord = true;
                     for (let r2 = start; r2 < start + len; r2++) {
                         letters.forEach(l => {
                             if (Math.floor(l.x / CELL_SIZE) === c && Math.floor(l.y / CELL_SIZE) === r2) flashLetter(l);
@@ -270,6 +282,9 @@ function checkWordsOptimized(scene) {
             }
         }
     }
+
+    // --- PLAY WORD FOUND SOUND ---
+    if (foundWord) scene.sound.play('wordfound');
 }
 
 // ---------------- LEVEL ----------------
