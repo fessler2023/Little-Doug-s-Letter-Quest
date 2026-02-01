@@ -34,7 +34,7 @@ const game = new Phaser.Game(config);
 
 // ---------------- PRELOAD ----------------
 function preload() {
-    this.load.json('dictionary', 'dictionary.json'); // your large dictionary JSON
+    this.load.json('dictionary', 'js/dictionary.json'); // your large dictionary JSON
     this.load.image('sidebarBg', 'assets/sidebar-bg.png'); // optional PNG for sidebar background
 }
 
@@ -247,4 +247,5 @@ function updateLevel() {
         dropInterval = Math.max(500 - (level - 1) * 50, 100);
     }
 }
+
 
