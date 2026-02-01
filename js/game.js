@@ -34,8 +34,8 @@ const game = new Phaser.Game(config);
 
 // ---------------- PRELOAD ----------------
 function preload() {
-    this.load.json('dictionary', 'dictionary.json'); // your large JSON
-    this.load.image('sidebarBg', 'assets/sidebar-bg.png'); // PNG for sidebar
+    this.load.json('dictionary', 'dictionary.json'); // your big JSON dictionary
+    this.load.image('sidebarBg', 'assets/sidebar-bg.png'); // optional PNG for sidebar background
 }
 
 // ---------------- CREATE ----------------
@@ -56,13 +56,13 @@ function create() {
         { font: "36px Courier", fill: "#ffff00", stroke: "#ff00ff", strokeThickness: 2 }).setOrigin(0.5, 0);
 
     // ---------------- SCORE, LEVEL, NEXT ----------------
-    scoreText = this.add.text(LEFT_PANEL_WIDTH + 20, 60, "Score: 0", { font: "24px Courier", fill: "#00ffff", stroke: "#ff00ff", strokeThickness: 1 });
-    levelText = this.add.text(LEFT_PANEL_WIDTH + 20, 110, "Level: 1", { font: "24px Courier", fill: "#00ffff", stroke: "#ff00ff", strokeThickness: 1 });
-    nextLetterText = this.add.text(LEFT_PANEL_WIDTH + 20, 160, "Next: ?", { font: "24px Courier", fill: "#ffff00", stroke: "#ff00ff", strokeThickness: 1 });
+    scoreText = this.add.text(LEFT_PANEL_WIDTH + 20, 60, "Score: 0", { font: "28px Courier", fill: "#00ffff", stroke: "#ff00ff", strokeThickness: 1 });
+    levelText = this.add.text(LEFT_PANEL_WIDTH + 20, 110, "Level: 1", { font: "28px Courier", fill: "#00ffff", stroke: "#ff00ff", strokeThickness: 1 });
+    nextLetterText = this.add.text(LEFT_PANEL_WIDTH + 20, 160, "Next: ?", { font: "28px Courier", fill: "#ffff00", stroke: "#ff00ff", strokeThickness: 1 });
 
     // ---------------- WORDS CREATED ----------------
     wordsText = this.add.text(LEFT_PANEL_WIDTH + 20, 220, "Words:\n", { 
-        font: "20px Courier", 
+        font: "24px Courier", 
         fill: "#00ff00", 
         stroke: "#00ffff",
         strokeThickness: 1,
@@ -84,7 +84,7 @@ function create() {
 
     // Load dictionary
     const dictionaryArray = this.cache.json.get('dictionary');
-    dictionarySet = new Set(dictionaryArray);
+    dictionarySet = new Set(dictionaryArray.map(word => word.toUpperCase()));
 
     nextLetter = getRandomLetter();
     spawnLetter(this);
@@ -154,19 +154,18 @@ function update(time, delta) {
     if (row >= ROWS - 1 || grid[Math.min(row + 1, ROWS - 1)][col]) {
         const finalRow = Math.min(row, ROWS - 1);
         currentLetter.y = finalRow * CELL_SIZE;
-        grid[finalRow][col] = currentLetter.text;
+        grid[finalRow][col] = currentLetter.text.toUpperCase();
         letters.push(currentLetter);
         currentLetter = null;
 
-        // Flash effect for letters that form words
-        checkWords(this);
+        checkWordsOptimized(this, finalRow, col);
         spawnLetter(this);
         updateLevel();
     }
 }
 
-// ---------------- WORD CHECK (HORIZONTAL + VERTICAL + FLASH) ----------------
-function checkWords(scene) {
+// ---------------- OPTIMIZED WORD CHECK ----------------
+function checkWordsOptimized(scene, rowChanged, colChanged) {
     function flashLetter(letter) {
         scene.tweens.add({
             targets: letter,
@@ -177,23 +176,24 @@ function checkWords(scene) {
         });
     }
 
-    // Horizontal
-    for (let r = 0; r < ROWS; r++) {
+    // ---------------- HORIZONTAL ----------------
+    if (rowChanged !== undefined) {
+        const r = rowChanged;
         let rowWord = "";
         for (let c = 0; c < COLS; c++) rowWord += grid[r][c] || " ";
 
-        for (let start = 0; start < rowWord.length; start++) {
-            for (let end = start + 1; end <= rowWord.length; end++) {
-                let sub = rowWord.slice(start, end).trim();
-                if (dictionarySet.has(sub) && !wordsCreated.includes(sub)) {
+        for (let start = 0; start < COLS; start++) {
+            for (let end = start + 1; end <= COLS; end++) {
+                const sub = rowWord.slice(start, end).replace(/\s+/g, "");
+                if (sub.length > 0 && dictionarySet.has(sub) && !wordsCreated.includes(sub)) {
                     score += sub.length;
                     scoreText.setText("Score: " + score);
 
                     for (let i = start; i < end; i++) {
-                        grid[r][i] = null;
                         letters.forEach(l => {
                             if (Math.floor(l.y / CELL_SIZE) === r && Math.floor(l.x / CELL_SIZE) === i) flashLetter(l);
                         });
+                        grid[r][i] = null;
                     }
 
                     wordsCreated.push(sub);
@@ -203,23 +203,24 @@ function checkWords(scene) {
         }
     }
 
-    // Vertical
-    for (let c = 0; c < COLS; c++) {
+    // ---------------- VERTICAL ----------------
+    if (colChanged !== undefined) {
+        const c = colChanged;
         let colWord = "";
         for (let r = 0; r < ROWS; r++) colWord += grid[r][c] || " ";
 
-        for (let start = 0; start < colWord.length; start++) {
-            for (let end = start + 1; end <= colWord.length; end++) {
-                let sub = colWord.slice(start, end).trim();
-                if (dictionarySet.has(sub) && !wordsCreated.includes(sub)) {
+        for (let start = 0; start < ROWS; start++) {
+            for (let end = start + 1; end <= ROWS; end++) {
+                const sub = colWord.slice(start, end).replace(/\s+/g, "");
+                if (sub.length > 0 && dictionarySet.has(sub) && !wordsCreated.includes(sub)) {
                     score += sub.length;
                     scoreText.setText("Score: " + score);
 
-                    for (let i = start; i < end; i++) {
-                        grid[i][c] = null;
+                    for (let r2 = start; r2 < end; r2++) {
                         letters.forEach(l => {
-                            if (Math.floor(l.x / CELL_SIZE) === c && Math.floor(l.y / CELL_SIZE) === i) flashLetter(l);
+                            if (Math.floor(l.x / CELL_SIZE) === c && Math.floor(l.y / CELL_SIZE) === r2) flashLetter(l);
                         });
+                        grid[r2][c] = null;
                     }
 
                     wordsCreated.push(sub);
@@ -239,4 +240,3 @@ function updateLevel() {
         dropInterval = Math.max(500 - (level - 1) * 50, 100);
     }
 }
-
