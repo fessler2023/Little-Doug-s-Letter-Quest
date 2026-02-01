@@ -3,7 +3,7 @@ const COLS = 10;
 const ROWS = 20;
 
 const LEFT_PANEL_WIDTH = COLS * CELL_SIZE;
-const RIGHT_PANEL_WIDTH = 300;
+const RIGHT_PANEL_WIDTH = 400; // wider sidebar
 const GAME_WIDTH = LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH;
 const GAME_HEIGHT = ROWS * CELL_SIZE;
 
@@ -48,16 +48,16 @@ function create() {
 
     // ---------------- TITLE ----------------
     this.add.text(LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH / 2, 10, "Little Doug’s Letter Quest", 
-        { font: "28px Courier", fill: "#ffff00" }).setOrigin(0.5, 0);
+        { font: "36px Courier", fill: "#ffff00" }).setOrigin(0.5, 0);
 
     // ---------------- SCORE, LEVEL, NEXT LETTER ----------------
-    scoreText = this.add.text(LEFT_PANEL_WIDTH + 20, 60, "Score: 0", { font: "20px Courier", fill: "#fff" });
-    levelText = this.add.text(LEFT_PANEL_WIDTH + 20, 100, "Level: 1", { font: "20px Courier", fill: "#fff" });
-    nextLetterText = this.add.text(LEFT_PANEL_WIDTH + 20, 140, "Next: ?", { font: "20px Courier", fill: "#ffff00" });
+    scoreText = this.add.text(LEFT_PANEL_WIDTH + 20, 60, "Score: 0", { font: "24px Courier", fill: "#fff" });
+    levelText = this.add.text(LEFT_PANEL_WIDTH + 20, 110, "Level: 1", { font: "24px Courier", fill: "#fff" });
+    nextLetterText = this.add.text(LEFT_PANEL_WIDTH + 20, 160, "Next: ?", { font: "24px Courier", fill: "#ffff00" });
 
     // ---------------- WORDS CREATED ----------------
-    wordsText = this.add.text(LEFT_PANEL_WIDTH + 20, 200, "Words:\n", { 
-        font: "18px Courier", 
+    wordsText = this.add.text(LEFT_PANEL_WIDTH + 20, 220, "Words:\n", { 
+        font: "20px Courier", 
         fill: "#00ff00", 
         wordWrap: { width: RIGHT_PANEL_WIDTH - 40 } 
     });
@@ -75,13 +75,14 @@ function create() {
 
     cursors = this.input.keyboard.createCursorKeys();
 
-    // Load dictionary
+    // Load dictionary into Set
     const dictionaryArray = this.cache.json.get('dictionary');
     dictionarySet = new Set(dictionaryArray);
 
     nextLetter = getRandomLetter();
     spawnLetter(this);
 
+    // Draw grid lines
     this.gridGraphics = this.add.graphics();
     drawGrid(this.gridGraphics);
 }
@@ -216,6 +217,3 @@ function updateLevel() {
         dropInterval = Math.max(500 - (level - 1) * 50, 100);
     }
 }
-
-
-
