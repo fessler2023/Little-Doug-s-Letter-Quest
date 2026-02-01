@@ -4,7 +4,7 @@ const COLS = 10;
 const ROWS = 20;
 
 const LEFT_PANEL_WIDTH = COLS * CELL_SIZE;
-const RIGHT_PANEL_WIDTH = 450; // increased width for sidebar
+const RIGHT_PANEL_WIDTH = 450; // wider sidebar
 const GAME_WIDTH = LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH;
 const GAME_HEIGHT = ROWS * CELL_SIZE;
 
@@ -19,7 +19,7 @@ let dropTimer = 0;
 let dropInterval = 500;
 let wordsCreated = [];
 
-let scoreText, levelText, nextLetterText, wordsText;
+let scoreText, levelText, nextLetterDisplay, wordsText;
 let dictionarySet;
 let dictionaryByLength = new Map();
 let minWordLength = 3;
@@ -38,48 +38,44 @@ const game = new Phaser.Game(config);
 
 // ---------------- PRELOAD ----------------
 function preload() {
-    this.load.json('dictionary', 'js/dictionary.json');       
-    this.load.image('sidebarBg', 'assets/sidebar-bg.png');    
+    this.load.image('sidebarBg', 'assets/sidebar-bg.png'); // PNG
 }
 
 // ---------------- CREATE ----------------
-function create() {
+async function create() {
     // ---------------- GRID (LEFT PANEL) ----------------
     this.add.rectangle(LEFT_PANEL_WIDTH / 2, GAME_HEIGHT / 2, LEFT_PANEL_WIDTH, GAME_HEIGHT, 0x111111).setOrigin(0.5);
     this.gridGraphics = this.add.graphics();
     drawGrid(this.gridGraphics, 0x00ffff);
-
-    // ---------------- RETRO BORDER ----------------
     this.gridGraphics.lineStyle(3, 0xff00ff, 1);
     this.gridGraphics.strokeRect(0, 0, LEFT_PANEL_WIDTH, GAME_HEIGHT);
 
-    // ---------------- SIDEBAR (RIGHT PANEL) ----------------
+    // ---------------- SIDEBAR ----------------
     this.add.rectangle(LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH / 2, GAME_HEIGHT / 2, RIGHT_PANEL_WIDTH, GAME_HEIGHT, 0x222222).setOrigin(0.5);
     this.sidebarGraphics = this.add.graphics();
     this.sidebarGraphics.lineStyle(3, 0xff00ff, 1);
     this.sidebarGraphics.strokeRect(LEFT_PANEL_WIDTH + 2, 2, RIGHT_PANEL_WIDTH - 4, GAME_HEIGHT - 4);
 
     // ---------------- TITLE ----------------
-    this.add.text(LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH / 2, 10, "Little Doug’s Letter Quest", 
+    this.add.text(LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH / 2, 10, "Little Doug’s Letter Quest",
         { font: "36px Courier", fill: "#ffff00", stroke: "#ff00ff", strokeThickness: 2 }).setOrigin(0.5, 0);
 
     // ---------------- SCORE, LEVEL, NEXT ----------------
     scoreText = this.add.text(LEFT_PANEL_WIDTH + 20, 60, "Score: 0", { font: "28px Courier", fill: "#00ffff", stroke: "#ff00ff", strokeThickness: 1 });
     levelText = this.add.text(LEFT_PANEL_WIDTH + 20, 110, "Level: 1", { font: "28px Courier", fill: "#00ffff", stroke: "#ff00ff", strokeThickness: 1 });
-    nextLetterText = this.add.text(LEFT_PANEL_WIDTH + 20, 160, "Next:", { font: "28px Courier", fill: "#ffff00", stroke: "#ff00ff", strokeThickness: 1 });
+    this.add.text(LEFT_PANEL_WIDTH + 20, 160, "Next:", { font: "28px Courier", fill: "#ffff00", stroke: "#ff00ff", strokeThickness: 1 });
 
     // ---------------- NEXT LETTER BOX ----------------
-    this.nextLetterBox = this.add.rectangle(LEFT_PANEL_WIDTH + 140, 175, 50, 50, 0x000000).setStrokeStyle(2, 0xffff00);
-    this.nextLetterDisplay = this.add.text(this.nextLetterBox.x, this.nextLetterBox.y, "?", 
-        { font: "32px Courier", fill: "#ffff00", stroke: "#ff00ff", strokeThickness: 2 }).setOrigin(0.5);
+    const nextBox = this.add.rectangle(LEFT_PANEL_WIDTH + 140, 175, 50, 50, 0x000000).setStrokeStyle(2, 0xffff00);
+    nextLetterDisplay = this.add.text(nextBox.x, nextBox.y, "?", { font: "32px Courier", fill: "#ffff00", stroke: "#ff00ff", strokeThickness: 2 }).setOrigin(0.5);
 
     // ---------------- WORDS CREATED ----------------
-    wordsText = this.add.text(LEFT_PANEL_WIDTH + 20, 230, "Words:\n", { 
-        font: "26px Courier", 
-        fill: "#00ff00", 
+    wordsText = this.add.text(LEFT_PANEL_WIDTH + 20, 230, "Words:\n", {
+        font: "26px Courier",
+        fill: "#00ff00",
         stroke: "#00ffff",
         strokeThickness: 1,
-        wordWrap: { width: RIGHT_PANEL_WIDTH - 40 } 
+        wordWrap: { width: RIGHT_PANEL_WIDTH - 40 }
     });
 
     // ---------------- BACKGROUND IMAGE SECTION ----------------
@@ -90,8 +86,6 @@ function create() {
         GAME_HEIGHT - 120,
         'sidebarBg'
     );
-
-    // scale proportionally
     const scaleX = bgWidth / bgImage.width;
     const scaleY = bgHeight / bgImage.height;
     bgImage.setScale(Math.min(scaleX, scaleY));
@@ -105,17 +99,15 @@ function create() {
     cursors = this.input.keyboard.createCursorKeys();
 
     // ---------------- LOAD DICTIONARY ----------------
-    const dictionaryArray = this.cache.json.get('dictionary');
-    if (!dictionaryArray) { alert("Dictionary JSON not found!"); return; }
-    prepareDictionary(dictionaryArray);
+    await loadDictionary();
 
-    // Initialize first letters
+    // ---------------- SPAWN FIRST LETTER ----------------
     nextLetter = getRandomLetter();
     spawnLetter(this);
 }
 
 // ---------------- DRAW GRID ----------------
-function drawGrid(graphics, color=0x00ffff) {
+function drawGrid(graphics, color = 0x00ffff) {
     graphics.clear();
     graphics.lineStyle(1, color);
     for (let r = 0; r <= ROWS; r++) {
@@ -129,19 +121,31 @@ function drawGrid(graphics, color=0x00ffff) {
     graphics.strokePath();
 }
 
+// ---------------- FETCH DICTIONARY ----------------
+async function loadDictionary() {
+    try {
+        const response = await fetch('./js/dictionary.json');
+        const dictionaryArray = await response.json();
+        prepareDictionary(dictionaryArray);
+        console.log("Dictionary loaded:", dictionaryArray.length, "words");
+    } catch (e) {
+        alert("Failed to load dictionary: " + e);
+    }
+}
+
 // ---------------- SPAWN LETTER ----------------
 function getRandomLetter() {
     return String.fromCharCode(65 + Math.floor(Math.random() * 26));
 }
 
 function spawnLetter(scene) {
-    if (!nextLetter) nextLetter = getRandomLetter(); 
+    if (!nextLetter) nextLetter = getRandomLetter();
 
-    currentLetter = scene.add.text(Math.floor(COLS / 2) * CELL_SIZE, 0, nextLetter, { 
-        font: "32px Courier", 
-        fill: "#ffff00", 
-        stroke: "#ff00ff", 
-        strokeThickness: 2 
+    currentLetter = scene.add.text(Math.floor(COLS / 2) * CELL_SIZE, 0, nextLetter, {
+        font: "32px Courier",
+        fill: "#ffff00",
+        stroke: "#ff00ff",
+        strokeThickness: 2
     }).setOrigin(0);
 
     nextLetter = getRandomLetter();
@@ -158,13 +162,12 @@ function spawnLetter(scene) {
     }
 }
 
-// ---------------- UPDATE LOOP ----------------
+// ---------------- UPDATE ----------------
 function update(time, delta) {
     if (!currentLetter) return;
 
     if (Phaser.Input.Keyboard.JustDown(cursors.left) && currentLetter.x >= 0) currentLetter.x -= CELL_SIZE;
     if (Phaser.Input.Keyboard.JustDown(cursors.right) && currentLetter.x < (COLS - 1) * CELL_SIZE) currentLetter.x += CELL_SIZE;
-
     if (cursors.down.isDown) currentLetter.y += CELL_SIZE;
 
     dropTimer += delta;
@@ -203,16 +206,10 @@ function prepareDictionary(dictionaryArray) {
     }
 }
 
-// ---------------- OPTIMIZED WORD CHECK ----------------
+// ---------------- WORD CHECK ----------------
 function checkWordsOptimized(scene, rowChanged, colChanged) {
     function flashLetter(letter) {
-        scene.tweens.add({
-            targets: letter,
-            alpha: 0,
-            duration: 100,
-            yoyo: true,
-            repeat: 3
-        });
+        scene.tweens.add({ targets: letter, alpha: 0, duration: 100, yoyo: true, repeat: 3 });
     }
 
     // HORIZONTAL
@@ -227,14 +224,12 @@ function checkWordsOptimized(scene, rowChanged, colChanged) {
                 if (sub.length >= minWordLength && dictionaryByLength.get(len)?.has(sub) && !wordsCreated.includes(sub)) {
                     score += sub.length;
                     scoreText.setText("Score: " + score);
-
                     for (let i = start; i < start + len; i++) {
                         letters.forEach(l => {
                             if (Math.floor(l.y / CELL_SIZE) === r && Math.floor(l.x / CELL_SIZE) === i) flashLetter(l);
                         });
                         grid[r][i] = null;
                     }
-
                     wordsCreated.push(sub);
                     wordsText.setText("Words:\n" + wordsCreated.join("\n"));
                 }
@@ -254,14 +249,12 @@ function checkWordsOptimized(scene, rowChanged, colChanged) {
                 if (sub.length >= minWordLength && dictionaryByLength.get(len)?.has(sub) && !wordsCreated.includes(sub)) {
                     score += sub.length;
                     scoreText.setText("Score: " + score);
-
                     for (let r2 = start; r2 < start + len; r2++) {
                         letters.forEach(l => {
                             if (Math.floor(l.x / CELL_SIZE) === c && Math.floor(l.y / CELL_SIZE) === r2) flashLetter(l);
                         });
                         grid[r2][c] = null;
                     }
-
                     wordsCreated.push(sub);
                     wordsText.setText("Words:\n" + wordsCreated.join("\n"));
                 }
@@ -279,6 +272,4 @@ function updateLevel() {
         dropInterval = Math.max(500 - (level - 1) * 50, 100);
     }
 }
-
-
 
