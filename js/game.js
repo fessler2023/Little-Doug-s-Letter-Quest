@@ -19,7 +19,7 @@ let dropTimer = 0;
 let dropInterval = 500;
 let wordsCreated = [];
 
-let scoreText, levelText, nextLetterDisplay, wordsText;
+let scoreText, levelText, nextLetterDisplay, wordsText, versionText;
 let dictionarySet;
 let minWordLength = 3;
 let maxWordLength = 7;
@@ -102,6 +102,14 @@ async function create() {
     const scaleY = bgHeight / bgImage.height;
     bgImage.setScale(Math.min(scaleX, scaleY));
 
+    // Version number
+    versionText = this.add.text(
+        LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH - 10,
+        GAME_HEIGHT - 10,
+        "V 1.0",
+        { font: "16px Courier", fill: "#888888" }
+    ).setOrigin(1, 1);
+
     // Initialize grid
     for (let r = 0; r < ROWS; r++) {
         grid[r] = [];
@@ -142,7 +150,7 @@ async function loadDictionary() {
         const response = await fetch('./js/dictionary.json');
         const dictionaryArray = await response.json();
         dictionarySet = new Set(dictionaryArray.map(w => w.toUpperCase()));
-        minWordLength = 3; // hardcode for gameplay
+        minWordLength = 3;
         maxWordLength = Math.max(...dictionaryArray.map(w => w.length));
     } catch (e) {
         alert("Failed to load dictionary: " + e);
@@ -206,7 +214,7 @@ function update(time, delta) {
             currentLetter = null;
 
             game.scene.scenes[0].sound.play('letterdrop');
-            checkAllWordsWithGravity(game.scene.scenes[0]);
+            checkAllWordsWithGravityAndCombo(game.scene.scenes[0]);
             spawnLetter(game.scene.scenes[0]);
             updateLevel();
         }
@@ -214,16 +222,16 @@ function update(time, delta) {
     }
 }
 
-// ---------------- WORD DETECTION WITH MULTI-WORD GRAVITY ----------------
-function checkAllWordsWithGravity(scene) {
+// ---------------- WORD DETECTION WITH GRAVITY & COMBOS ----------------
+function checkAllWordsWithGravityAndCombo(scene) {
     function flashLetter(letterObj) {
         scene.tweens.add({ targets: letterObj, alpha: 0, duration: 100, yoyo: true, repeat: 3 });
     }
 
-    let foundWord = false;
     let clearedPositions = [];
+    let wordsThisDrop = [];
 
-    // Scan horizontal and vertical
+    // Scan horizontal
     for (let r = 0; r < ROWS; r++) {
         for (let cStart = 0; cStart < COLS; cStart++) {
             if (!grid[r][cStart]) continue;
@@ -231,18 +239,15 @@ function checkAllWordsWithGravity(scene) {
                 const wordArr = [];
                 for (let i = 0; i < len; i++) wordArr.push(grid[r][cStart + i]);
                 const word = wordArr.join("");
-                if (dictionarySet.has(word) && !wordsCreated.includes(word)) {
-                    foundWord = true;
-                    wordsCreated.push(word);
-                    score += word.length;
-                    wordsText.setText("Words:\n" + wordsCreated.join("\n"));
-                    scoreText.setText("Score: " + score);
+                if (dictionarySet.has(word) && !wordsCreated.includes(word) && !wordsThisDrop.includes(word)) {
+                    wordsThisDrop.push(word);
                     for (let i = 0; i < len; i++) clearedPositions.push({ row: r, col: cStart + i });
                 }
             }
         }
     }
 
+    // Scan vertical
     for (let c = 0; c < COLS; c++) {
         for (let rStart = 0; rStart < ROWS; rStart++) {
             if (!grid[rStart][c]) continue;
@@ -250,20 +255,25 @@ function checkAllWordsWithGravity(scene) {
                 const wordArr = [];
                 for (let i = 0; i < len; i++) wordArr.push(grid[rStart + i][c]);
                 const word = wordArr.join("");
-                if (dictionarySet.has(word) && !wordsCreated.includes(word)) {
-                    foundWord = true;
-                    wordsCreated.push(word);
-                    score += word.length;
-                    wordsText.setText("Words:\n" + wordsCreated.join("\n"));
-                    scoreText.setText("Score: " + score);
+                if (dictionarySet.has(word) && !wordsCreated.includes(word) && !wordsThisDrop.includes(word)) {
+                    wordsThisDrop.push(word);
                     for (let i = 0; i < len; i++) clearedPositions.push({ row: rStart + i, col: c });
                 }
             }
         }
     }
 
-    if (foundWord) {
-        // Flash all letters first
+    if (wordsThisDrop.length > 0) {
+        // Combo multiplier: 1st word normal, each extra word +50% points
+        let multiplier = 1 + (wordsThisDrop.length - 1) * 0.5;
+        wordsThisDrop.forEach(word => {
+            wordsCreated.push(word);
+            score += Math.floor(word.length * multiplier);
+        });
+
+        wordsText.setText("Words:\n" + wordsCreated.join("\n"));
+        scoreText.setText("Score: " + score);
+
         clearedPositions.forEach(pos => {
             const l = letters.find(letterObj => Math.floor(letterObj.x / CELL_SIZE) === pos.col && Math.floor(letterObj.y / CELL_SIZE) === pos.row);
             if (l) flashLetter(l);
@@ -271,14 +281,12 @@ function checkAllWordsWithGravity(scene) {
 
         scene.sound.play('wordfound');
 
-        // Remove letters and apply gravity
         setTimeout(() => {
             removeLettersAndApplyGravity(clearedPositions);
-        }, 350); // delay to allow flash to complete
+        }, 350);
     }
 
     function removeLettersAndApplyGravity(positions) {
-        // Remove letters from letters array and grid
         positions.forEach(pos => {
             const idx = letters.findIndex(l => Math.floor(l.x / CELL_SIZE) === pos.col && Math.floor(l.y / CELL_SIZE) === pos.row);
             if (idx !== -1) {
@@ -288,7 +296,6 @@ function checkAllWordsWithGravity(scene) {
             grid[pos.row][pos.col] = null;
         });
 
-        // Apply gravity column by column
         for (let c = 0; c < COLS; c++) {
             for (let r = ROWS - 1; r >= 0; r--) {
                 if (!grid[r][c]) {
@@ -317,3 +324,4 @@ function updateLevel() {
         dropInterval = Math.max(500 - (level - 1) * 50, 100);
     }
 }
+
