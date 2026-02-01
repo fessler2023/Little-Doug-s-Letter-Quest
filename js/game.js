@@ -106,7 +106,7 @@ async function create() {
     versionText = this.add.text(
         LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH - 10,
         GAME_HEIGHT - 10,
-        "V 1.1",
+        "V 1.0",
         { font: "16px Courier", fill: "#888888" }
     ).setOrigin(1, 1);
 
@@ -208,22 +208,28 @@ function update(time, delta) {
         if (row < ROWS - 1 && !grid[row + 1][col]) {
             currentLetter.y += CELL_SIZE;
         } else {
+            // Land the letter
             currentLetter.y = row * CELL_SIZE;
-            grid[row][col] = currentLetter; // <-- store Phaser object instead of string
+            grid[row][col] = currentLetter;
             letters.push(currentLetter);
+
+            const landedLetter = currentLetter;
             currentLetter = null;
 
             game.scene.scenes[0].sound.play('letterdrop');
-            checkAllWordsWithGravityAndCombo(game.scene.scenes[0]);
-            spawnLetter(game.scene.scenes[0]);
-            updateLevel();
+
+            // Check words with gravity, spawn next letter only after
+            checkAllWordsWithGravityAndCombo(game.scene.scenes[0], () => {
+                spawnLetter(game.scene.scenes[0]);
+                updateLevel();
+            });
         }
         dropTimer = 0;
     }
 }
 
-// ---------------- WORD DETECTION WITH GRAVITY & COMBOS ----------------
-function checkAllWordsWithGravityAndCombo(scene) {
+// ---------------- WORD DETECTION WITH GRAVITY ----------------
+function checkAllWordsWithGravityAndCombo(scene, callback) {
     function flashLetter(letterObj) {
         scene.tweens.add({ targets: letterObj, alpha: 0, duration: 100, yoyo: true, repeat: 3 });
     }
@@ -282,7 +288,10 @@ function checkAllWordsWithGravityAndCombo(scene) {
 
         setTimeout(() => {
             removeLettersAndApplyGravity(clearedPositions);
+            if (callback) callback();
         }, 350);
+    } else {
+        if (callback) callback();
     }
 
     function removeLettersAndApplyGravity(positions) {
@@ -322,5 +331,4 @@ function updateLevel() {
         dropInterval = Math.max(500 - (level - 1) * 50, 100);
     }
 }
-
 
