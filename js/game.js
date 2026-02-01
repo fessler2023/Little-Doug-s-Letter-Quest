@@ -142,8 +142,7 @@ async function loadDictionary() {
         const response = await fetch('./js/dictionary.json');
         const dictionaryArray = await response.json();
         dictionarySet = new Set(dictionaryArray.map(w => w.toUpperCase()));
-        // Optional: keep min/max for debugging, but use gameplay minWordLength = 3
-        minWordLength = 3;
+        minWordLength = 3; // hardcode for gameplay
         maxWordLength = Math.max(...dictionaryArray.map(w => w.length));
     } catch (e) {
         alert("Failed to load dictionary: " + e);
@@ -198,23 +197,16 @@ function update(time, delta) {
         const row = Math.floor(currentLetter.y / CELL_SIZE);
         const col = Math.floor(currentLetter.x / CELL_SIZE);
 
-        // Only move down if the next row is empty and within bounds
         if (row < ROWS - 1 && !grid[row + 1][col]) {
             currentLetter.y += CELL_SIZE;
         } else {
-            // Letter lands
             currentLetter.y = row * CELL_SIZE;
             grid[row][col] = currentLetter.text.toUpperCase();
             letters.push(currentLetter);
             currentLetter = null;
 
-            // Play drop sound
             game.scene.scenes[0].sound.play('letterdrop');
-
-            // Check words
-            checkWordsOptimized(game.scene.scenes[0]);
-
-            // Next letter
+            checkWordsWithGravity(game.scene.scenes[0]);
             spawnLetter(game.scene.scenes[0]);
             updateLevel();
         }
@@ -222,87 +214,108 @@ function update(time, delta) {
     }
 }
 
-// ---------------- WORD DETECTION ----------------
-function checkWordsOptimized(scene) {
+// ---------------- WORD DETECTION WITH GRAVITY ----------------
+function checkWordsWithGravity(scene) {
     function flashLetter(letterObj) {
         scene.tweens.add({ targets: letterObj, alpha: 0, duration: 100, yoyo: true, repeat: 3 });
     }
 
     let foundWord = false;
 
-    // ---------------- HORIZONTAL ----------------
-    for (let r = 0; r < ROWS; r++) {
-        let c = 0;
-        while (c < COLS) {
-            if (!grid[r][c]) { c++; continue; }
+    // Helper to remove letters and apply gravity
+    function removeLettersAndApplyGravity(clearedPositions) {
+        // Remove letters from letters array and grid
+        clearedPositions.forEach(pos => {
+            const idx = letters.findIndex(l => Math.floor(l.x / CELL_SIZE) === pos.col && Math.floor(l.y / CELL_SIZE) === pos.row);
+            if (idx !== -1) {
+                letters[idx].destroy();
+                letters.splice(idx, 1);
+            }
+            grid[pos.row][pos.col] = null;
+        });
 
-            let start = c;
-            while (c < COLS && grid[r][c]) c++;
-            let end = c;
-
-            const sequence = [];
-            for (let i = start; i < end; i++) sequence.push({ letter: grid[r][i], row: r, col: i });
-
-            for (let len = minWordLength; len <= sequence.length; len++) {
-                for (let i = 0; i <= sequence.length - len; i++) {
-                    const word = sequence.slice(i, i + len).map(x => x.letter.toUpperCase()).join("");
-                    if (dictionarySet.has(word) && !wordsCreated.includes(word)) {
-                        foundWord = true;
-                        score += word.length;
-                        scoreText.setText("Score: " + score);
-                        wordsCreated.push(word);
-                        wordsText.setText("Words:\n" + wordsCreated.join("\n"));
-
-                        sequence.slice(i, i + len).forEach(pos => {
-                            letters.forEach(letterObj => {
-                                const letterCol = Math.floor(letterObj.x / CELL_SIZE);
-                                const letterRow = Math.floor(letterObj.y / CELL_SIZE);
-                                if (letterCol === pos.col && letterRow === pos.row) flashLetter(letterObj);
-                            });
-                            grid[pos.row][pos.col] = null;
-                        });
+        // Apply gravity column by column
+        for (let c = 0; c < COLS; c++) {
+            for (let r = ROWS - 1; r >= 0; r--) {
+                if (!grid[r][c]) {
+                    // Find the nearest non-empty cell above
+                    let k = r - 1;
+                    while (k >= 0 && !grid[k][c]) k--;
+                    if (k >= 0) {
+                        // Move letter down
+                        const movingLetter = letters.find(l => Math.floor(l.x / CELL_SIZE) === c && Math.floor(l.y / CELL_SIZE) === k);
+                        if (movingLetter) {
+                            movingLetter.y = r * CELL_SIZE;
+                            grid[r][c] = movingLetter.text.toUpperCase();
+                            grid[k][c] = null;
+                        }
                     }
                 }
             }
         }
     }
 
-    // ---------------- VERTICAL ----------------
-    for (let c = 0; c < COLS; c++) {
-        let r = 0;
-        while (r < ROWS) {
-            if (!grid[r][c]) { r++; continue; }
+    // Detect words (horizontal + vertical)
+    const directions = ['H', 'V'];
+    directions.forEach(dir => {
+        if (dir === 'H') {
+            for (let r = 0; r < ROWS; r++) {
+                let c = 0;
+                while (c < COLS) {
+                    if (!grid[r][c]) { c++; continue; }
+                    let start = c;
+                    while (c < COLS && grid[r][c]) c++;
+                    const sequence = [];
+                    for (let i = start; i < c; i++) sequence.push({ letter: grid[r][i], row: r, col: i });
 
-            let start = r;
-            while (r < ROWS && grid[r][c]) r++;
-            let end = r;
+                    for (let len = minWordLength; len <= sequence.length; len++) {
+                        for (let i = 0; i <= sequence.length - len; i++) {
+                            const word = sequence.slice(i, i + len).map(x => x.letter.toUpperCase()).join("");
+                            if (dictionarySet.has(word) && !wordsCreated.includes(word)) {
+                                foundWord = true;
+                                score += word.length;
+                                scoreText.setText("Score: " + score);
+                                wordsCreated.push(word);
+                                wordsText.setText("Words:\n" + wordsCreated.join("\n"));
 
-            const sequence = [];
-            for (let i = start; i < end; i++) sequence.push({ letter: grid[i][c], row: i, col: c });
+                                const cleared = sequence.slice(i, i + len);
+                                cleared.forEach(pos => letters.forEach(l => { if (Math.floor(l.x / CELL_SIZE) === pos.col && Math.floor(l.y / CELL_SIZE) === pos.row) flashLetter(l); }));
+                                removeLettersAndApplyGravity(cleared);
+                            }
+                        }
+                    }
+                }
+            }
+        } else { // Vertical
+            for (let c = 0; c < COLS; c++) {
+                let r = 0;
+                while (r < ROWS) {
+                    if (!grid[r][c]) { r++; continue; }
+                    let start = r;
+                    while (r < ROWS && grid[r][c]) r++;
+                    const sequence = [];
+                    for (let i = start; i < r; i++) sequence.push({ letter: grid[i][c], row: i, col: c });
 
-            for (let len = minWordLength; len <= sequence.length; len++) {
-                for (let i = 0; i <= sequence.length - len; i++) {
-                    const word = sequence.slice(i, i + len).map(x => x.letter.toUpperCase()).join("");
-                    if (dictionarySet.has(word) && !wordsCreated.includes(word)) {
-                        foundWord = true;
-                        score += word.length;
-                        scoreText.setText("Score: " + score);
-                        wordsCreated.push(word);
-                        wordsText.setText("Words:\n" + wordsCreated.join("\n"));
+                    for (let len = minWordLength; len <= sequence.length; len++) {
+                        for (let i = 0; i <= sequence.length - len; i++) {
+                            const word = sequence.slice(i, i + len).map(x => x.letter.toUpperCase()).join("");
+                            if (dictionarySet.has(word) && !wordsCreated.includes(word)) {
+                                foundWord = true;
+                                score += word.length;
+                                scoreText.setText("Score: " + score);
+                                wordsCreated.push(word);
+                                wordsText.setText("Words:\n" + wordsCreated.join("\n"));
 
-                        sequence.slice(i, i + len).forEach(pos => {
-                            letters.forEach(letterObj => {
-                                const letterCol = Math.floor(letterObj.x / CELL_SIZE);
-                                const letterRow = Math.floor(letterObj.y / CELL_SIZE);
-                                if (letterCol === pos.col && letterRow === pos.row) flashLetter(letterObj);
-                            });
-                            grid[pos.row][pos.col] = null;
-                        });
+                                const cleared = sequence.slice(i, i + len);
+                                cleared.forEach(pos => letters.forEach(l => { if (Math.floor(l.x / CELL_SIZE) === pos.col && Math.floor(l.y / CELL_SIZE) === pos.row) flashLetter(l); }));
+                                removeLettersAndApplyGravity(cleared);
+                            }
+                        }
                     }
                 }
             }
         }
-    }
+    });
 
     if (foundWord) scene.sound.play('wordfound');
 }
@@ -316,4 +329,3 @@ function updateLevel() {
         dropInterval = Math.max(500 - (level - 1) * 50, 100);
     }
 }
-
