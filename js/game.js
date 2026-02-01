@@ -4,7 +4,7 @@ const COLS = 10;
 const ROWS = 20;
 
 const LEFT_PANEL_WIDTH = COLS * CELL_SIZE;
-const RIGHT_PANEL_WIDTH = 400;
+const RIGHT_PANEL_WIDTH = 450; // increased width for sidebar
 const GAME_WIDTH = LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH;
 const GAME_HEIGHT = ROWS * CELL_SIZE;
 
@@ -38,8 +38,8 @@ const game = new Phaser.Game(config);
 
 // ---------------- PRELOAD ----------------
 function preload() {
-    this.load.json('dictionary', 'js/dictionary.json');       // dictionary in js folder
-    this.load.image('sidebarBg', 'assets/sidebar-bg.png');    // PNG in assets folder
+    this.load.json('dictionary', 'js/dictionary.json');       
+    this.load.image('sidebarBg', 'assets/sidebar-bg.png');    
 }
 
 // ---------------- CREATE ----------------
@@ -48,6 +48,10 @@ function create() {
     this.add.rectangle(LEFT_PANEL_WIDTH / 2, GAME_HEIGHT / 2, LEFT_PANEL_WIDTH, GAME_HEIGHT, 0x111111).setOrigin(0.5);
     this.gridGraphics = this.add.graphics();
     drawGrid(this.gridGraphics, 0x00ffff);
+
+    // ---------------- RETRO BORDER ----------------
+    this.gridGraphics.lineStyle(3, 0xff00ff, 1);
+    this.gridGraphics.strokeRect(0, 0, LEFT_PANEL_WIDTH, GAME_HEIGHT);
 
     // ---------------- SIDEBAR (RIGHT PANEL) ----------------
     this.add.rectangle(LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH / 2, GAME_HEIGHT / 2, RIGHT_PANEL_WIDTH, GAME_HEIGHT, 0x222222).setOrigin(0.5);
@@ -62,11 +66,16 @@ function create() {
     // ---------------- SCORE, LEVEL, NEXT ----------------
     scoreText = this.add.text(LEFT_PANEL_WIDTH + 20, 60, "Score: 0", { font: "28px Courier", fill: "#00ffff", stroke: "#ff00ff", strokeThickness: 1 });
     levelText = this.add.text(LEFT_PANEL_WIDTH + 20, 110, "Level: 1", { font: "28px Courier", fill: "#00ffff", stroke: "#ff00ff", strokeThickness: 1 });
-    nextLetterText = this.add.text(LEFT_PANEL_WIDTH + 20, 160, "Next: ?", { font: "28px Courier", fill: "#ffff00", stroke: "#ff00ff", strokeThickness: 1 });
+    nextLetterText = this.add.text(LEFT_PANEL_WIDTH + 20, 160, "Next:", { font: "28px Courier", fill: "#ffff00", stroke: "#ff00ff", strokeThickness: 1 });
+
+    // ---------------- NEXT LETTER BOX ----------------
+    this.nextLetterBox = this.add.rectangle(LEFT_PANEL_WIDTH + 140, 175, 50, 50, 0x000000).setStrokeStyle(2, 0xffff00);
+    this.nextLetterDisplay = this.add.text(this.nextLetterBox.x, this.nextLetterBox.y, "?", 
+        { font: "32px Courier", fill: "#ffff00", stroke: "#ff00ff", strokeThickness: 2 }).setOrigin(0.5);
 
     // ---------------- WORDS CREATED ----------------
-    wordsText = this.add.text(LEFT_PANEL_WIDTH + 20, 220, "Words:\n", { 
-        font: "24px Courier", 
+    wordsText = this.add.text(LEFT_PANEL_WIDTH + 20, 230, "Words:\n", { 
+        font: "26px Courier", 
         fill: "#00ff00", 
         stroke: "#00ffff",
         strokeThickness: 1,
@@ -74,9 +83,18 @@ function create() {
     });
 
     // ---------------- BACKGROUND IMAGE SECTION ----------------
-    this.add.rectangle(LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH / 2, GAME_HEIGHT - 120, RIGHT_PANEL_WIDTH - 40, 100, 0x333333).setOrigin(0.5);
-    this.add.image(LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH / 2, GAME_HEIGHT - 120, 'sidebarBg')
-        .setDisplaySize(RIGHT_PANEL_WIDTH - 40, 100);
+    const bgWidth = RIGHT_PANEL_WIDTH - 40;
+    const bgHeight = 100;
+    const bgImage = this.add.image(
+        LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH / 2,
+        GAME_HEIGHT - 120,
+        'sidebarBg'
+    );
+
+    // scale proportionally
+    const scaleX = bgWidth / bgImage.width;
+    const scaleY = bgHeight / bgImage.height;
+    bgImage.setScale(Math.min(scaleX, scaleY));
 
     // ---------------- GRID DATA ----------------
     for (let r = 0; r < ROWS; r++) {
@@ -127,7 +145,7 @@ function spawnLetter(scene) {
     }).setOrigin(0);
 
     nextLetter = getRandomLetter();
-    nextLetterText.setText("Next: " + nextLetter);
+    nextLetterDisplay.setText(nextLetter);
 
     const col = Math.floor(currentLetter.x / CELL_SIZE);
     if (grid[0][col]) {
@@ -197,7 +215,7 @@ function checkWordsOptimized(scene, rowChanged, colChanged) {
         });
     }
 
-    // ---------------- HORIZONTAL ----------------
+    // HORIZONTAL
     if (rowChanged !== undefined) {
         const r = rowChanged;
         let rowWord = "";
@@ -224,7 +242,7 @@ function checkWordsOptimized(scene, rowChanged, colChanged) {
         }
     }
 
-    // ---------------- VERTICAL ----------------
+    // VERTICAL
     if (colChanged !== undefined) {
         const c = colChanged;
         let colWord = "";
