@@ -142,7 +142,8 @@ async function loadDictionary() {
         const response = await fetch('./js/dictionary.json');
         const dictionaryArray = await response.json();
         dictionarySet = new Set(dictionaryArray.map(w => w.toUpperCase()));
-        minWordLength = Math.min(...dictionaryArray.map(w => w.length));
+        // Optional: keep min/max for debugging, but use gameplay minWordLength = 3
+        minWordLength = 3;
         maxWordLength = Math.max(...dictionaryArray.map(w => w.length));
     } catch (e) {
         alert("Failed to load dictionary: " + e);
@@ -229,7 +230,7 @@ function checkWordsOptimized(scene) {
 
     let foundWord = false;
 
-    // HORIZONTAL
+    // ---------------- HORIZONTAL ----------------
     for (let r = 0; r < ROWS; r++) {
         let c = 0;
         while (c < COLS) {
@@ -244,7 +245,7 @@ function checkWordsOptimized(scene) {
 
             for (let len = minWordLength; len <= sequence.length; len++) {
                 for (let i = 0; i <= sequence.length - len; i++) {
-                    const word = sequence.slice(i, i + len).map(x => x.letter).join("");
+                    const word = sequence.slice(i, i + len).map(x => x.letter.toUpperCase()).join("");
                     if (dictionarySet.has(word) && !wordsCreated.includes(word)) {
                         foundWord = true;
                         score += word.length;
@@ -252,11 +253,10 @@ function checkWordsOptimized(scene) {
                         wordsCreated.push(word);
                         wordsText.setText("Words:\n" + wordsCreated.join("\n"));
 
-                        // Flash letters and remove from grid
                         sequence.slice(i, i + len).forEach(pos => {
                             letters.forEach(letterObj => {
-                                const letterCol = Math.round(letterObj.x / CELL_SIZE);
-                                const letterRow = Math.round(letterObj.y / CELL_SIZE);
+                                const letterCol = Math.floor(letterObj.x / CELL_SIZE);
+                                const letterRow = Math.floor(letterObj.y / CELL_SIZE);
                                 if (letterCol === pos.col && letterRow === pos.row) flashLetter(letterObj);
                             });
                             grid[pos.row][pos.col] = null;
@@ -267,7 +267,7 @@ function checkWordsOptimized(scene) {
         }
     }
 
-    // VERTICAL
+    // ---------------- VERTICAL ----------------
     for (let c = 0; c < COLS; c++) {
         let r = 0;
         while (r < ROWS) {
@@ -282,7 +282,7 @@ function checkWordsOptimized(scene) {
 
             for (let len = minWordLength; len <= sequence.length; len++) {
                 for (let i = 0; i <= sequence.length - len; i++) {
-                    const word = sequence.slice(i, i + len).map(x => x.letter).join("");
+                    const word = sequence.slice(i, i + len).map(x => x.letter.toUpperCase()).join("");
                     if (dictionarySet.has(word) && !wordsCreated.includes(word)) {
                         foundWord = true;
                         score += word.length;
@@ -292,8 +292,8 @@ function checkWordsOptimized(scene) {
 
                         sequence.slice(i, i + len).forEach(pos => {
                             letters.forEach(letterObj => {
-                                const letterCol = Math.round(letterObj.x / CELL_SIZE);
-                                const letterRow = Math.round(letterObj.y / CELL_SIZE);
+                                const letterCol = Math.floor(letterObj.x / CELL_SIZE);
+                                const letterRow = Math.floor(letterObj.y / CELL_SIZE);
                                 if (letterCol === pos.col && letterRow === pos.row) flashLetter(letterObj);
                             });
                             grid[pos.row][pos.col] = null;
