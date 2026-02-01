@@ -106,7 +106,7 @@ async function create() {
     versionText = this.add.text(
         LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH - 10,
         GAME_HEIGHT - 10,
-        "V 1.0",
+        "V 1.1",
         { font: "16px Courier", fill: "#888888" }
     ).setOrigin(1, 1);
 
@@ -322,4 +322,5 @@ function updateLevel() {
         dropInterval = Math.max(500 - (level - 1) * 50, 100);
     }
 }
+
 
