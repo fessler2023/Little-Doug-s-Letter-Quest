@@ -27,23 +27,18 @@ let maxWordLength = 7;
 
 const config = {
     type: Phaser.AUTO,
-
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
-
     parent: 'phaser-game',
     backgroundColor: 0x000000,
-
     scale: {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH
     },
-
     scene: { preload, create, update }
 };
 
 const game = new Phaser.Game(config);
-
 
 // ---------------- PRELOAD ----------------
 function preload() {
@@ -86,39 +81,37 @@ async function create() {
     );
 
     // ---------------- TITLE ----------------
-this.add.text(
-    LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH / 2,
-    10,
-    "Little Doug’s\nLetter Quest",
-    {
-        font: "32px Courier",
-        fill: "#ffff00",
-        stroke: "#ff00ff",
-        strokeThickness: 2,
-        align: 'center'
-    }
-).setOrigin(0.5, 0);
-
-
+    this.add.text(
+        LEFT_PANEL_WIDTH + RIGHT_PANEL_WIDTH / 2,
+        10,
+        "Little Doug’s\nLetter Quest",
+        {
+            font: "32px Courier",
+            fill: "#ffff00",
+            stroke: "#ff00ff",
+            strokeThickness: 2,
+            align: 'center'
+        }
+    ).setOrigin(0.5, 0);
 
     // ---------------- SCORE, LEVEL, NEXT ----------------
     scoreText = this.add.text(
         LEFT_PANEL_WIDTH + 20,
-        60,
+        90,
         "Score: 0",
         { font: "28px Courier", fill: "#00ffff", stroke: "#ff00ff", strokeThickness: 1 }
     );
 
     levelText = this.add.text(
         LEFT_PANEL_WIDTH + 20,
-        110,
+        140,
         "Level: 1",
         { font: "28px Courier", fill: "#00ffff", stroke: "#ff00ff", strokeThickness: 1 }
     );
 
     this.add.text(
         LEFT_PANEL_WIDTH + 20,
-        160,
+        190,
         "Next:",
         { font: "28px Courier", fill: "#ffff00", stroke: "#ff00ff", strokeThickness: 1 }
     );
@@ -126,7 +119,7 @@ this.add.text(
     // ---------------- NEXT LETTER BOX ----------------
     const nextBox = this.add.rectangle(
         LEFT_PANEL_WIDTH + 140,
-        175,
+        210,
         50,
         50,
         0x000000
@@ -142,7 +135,7 @@ this.add.text(
     // ---------------- WORDS CREATED ----------------
     wordsText = this.add.text(
         LEFT_PANEL_WIDTH + 20,
-        230,
+        270,
         "Words:\n",
         {
             font: "26px Courier",
@@ -428,6 +421,3 @@ function updateLevel() {
         dropInterval = Math.max(500 - (level - 1) * 50, 100);
     }
 }
-
-
-
