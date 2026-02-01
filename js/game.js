@@ -1,3 +1,4 @@
+
 const CELL_SIZE = 32;
 const COLS = 10;
 const ROWS = 20;
@@ -15,12 +16,11 @@ let cursors;
 let score = 0;
 let level = 1;
 let dropTimer = 0;
-let dropInterval = 500;
+let dropInterval = 500; // initial drop speed (ms)
 let wordsCreated = [];
 
 let scoreText, levelText, nextLetterText, wordsText;
-
-let dictionary = ["CAT","DOG","HELLO","WORLD","FUN","CODE"];
+let dictionarySet;
 
 const config = {
     type: Phaser.AUTO,
@@ -33,8 +33,12 @@ const config = {
 
 const game = new Phaser.Game(config);
 
-function preload(){}
+// ---------------- PRELOAD ----------------
+function preload(){
+    this.load.json('dictionary', 'dictionary.json'); // load external dictionary
+}
 
+// ---------------- CREATE ----------------
 function create() {
     // Draw left panel (drop zone)
     this.add.rectangle(LEFT_PANEL_WIDTH/2, GAME_HEIGHT/2, LEFT_PANEL_WIDTH, GAME_HEIGHT, 0x111111).setOrigin(0.5);
@@ -60,6 +64,11 @@ function create() {
     }
 
     cursors = this.input.keyboard.createCursorKeys();
+
+    // Load dictionary into a Set for fast lookup
+    const dictionaryArray = this.cache.json.get('dictionary');
+    dictionarySet = new Set(dictionaryArray);
+
     nextLetter = getRandomLetter();
     spawnLetter(this);
 
@@ -68,7 +77,7 @@ function create() {
     drawGrid(this.gridGraphics);
 }
 
-// Draw visible grid
+// ---------------- GRID ----------------
 function drawGrid(graphics){
     graphics.clear();
     graphics.lineStyle(1, 0x555555); // retro gray lines
@@ -83,12 +92,13 @@ function drawGrid(graphics){
     graphics.strokePath();
 }
 
+// ---------------- LETTER SPAWN ----------------
 function getRandomLetter() {
     return String.fromCharCode(65 + Math.floor(Math.random()*26));
 }
 
 function spawnLetter(scene){
-    currentLetter = scene.add.text(Math.floor(COLS/2)*CELL_SIZE, 0, nextLetter, { font: "32px Courier", fill: "#ffff00" }).setOrigin(0); // yellow falling letter
+    currentLetter = scene.add.text(Math.floor(COLS/2)*CELL_SIZE, 0, nextLetter, { font: "32px Courier", fill: "#ffff00" }).setOrigin(0);
     nextLetter = getRandomLetter();
     nextLetterText.setText("Next: " + nextLetter);
 
@@ -98,10 +108,12 @@ function spawnLetter(scene){
         scene.scene.restart();
         score = 0;
         level = 1;
+        dropInterval = 500; // reset speed
         wordsCreated = [];
     }
 }
 
+// ---------------- UPDATE LOOP ----------------
 function update(time, delta){
     if(!currentLetter) return;
 
@@ -134,47 +146,65 @@ function update(time, delta){
         letters.push(currentLetter);
         currentLetter = null;
 
-        checkWords(this);
+        checkWordsOptimized(this);
         spawnLetter(this);
+        updateLevel();
     }
 
     drawLetters();
 }
 
-// Draw letters in grid
+// ---------------- DRAW LETTERS ----------------
 function drawLetters(){
-    // Clear and redraw all letters in grid
     letters.forEach(l=>{
-        l.setDepth(1); // ensure visible
+        l.setDepth(1);
     });
 }
 
-// Check for completed words
-function checkWords(scene){
+// ---------------- OPTIMIZED WORD CHECK ----------------
+function checkWordsOptimized(scene){
     for(let r=0;r<ROWS;r++){
         let rowWord = "";
         for(let c=0;c<COLS;c++){
             rowWord += grid[r][c] || " ";
         }
 
-        dictionary.forEach(word=>{
-            if(rowWord.includes(word)){
-                score += word.length;
-                scoreText.setText("Score: " + score);
+        for(let start=0; start<rowWord.length; start++){
+            for(let end=start+1; end<=rowWord.length; end++){
+                let sub = rowWord.slice(start, end).trim();
+                if(dictionarySet.has(sub) && !wordsCreated.includes(sub)){
+                    // Word found
+                    score += sub.length;
+                    scoreText.setText("Score: " + score);
 
-                // Clear letters in row for the word
-                for(let i=0;i<COLS;i++){
-                    if(grid[r][i] && word.includes(grid[r][i])) grid[r][i] = null;
+                    // Clear letters in the row that are part of the word
+                    for(let i=start;i<end;i++){
+                        grid[r][i] = null;
+                    }
+
+                    // Remove letters from scene
+                    letters = letters.filter(l => Math.floor(l.y / CELL_SIZE) !== r);
+
+                    // Update sidebar
+                    wordsCreated.push(sub);
+                    wordsText.setText("Words:\n" + wordsCreated.join("\n"));
                 }
-
-                // Remove letters from scene
-                letters = letters.filter(l=>Math.floor(l.y / CELL_SIZE) !== r);
-
-                // Update words sidebar
-                wordsCreated.push(word);
-                wordsText.setText("Words:\n" + wordsCreated.join("\n"));
             }
-        });
+        }
     }
 }
+
+// ---------------- LEVELING ----------------
+function updateLevel(){
+    // Increase level every 10 points
+    const newLevel = Math.floor(score / 10) + 1;
+    if(newLevel > level){
+        level = newLevel;
+        levelText.setText("Level: " + level);
+
+        // Increase speed: reduce dropInterval by 50ms per level (min 100ms)
+        dropInterval = Math.max(500 - (level-1)*50, 100);
+    }
+}
+
 
